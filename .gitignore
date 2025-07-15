@@ -1,0 +1,23 @@
+# Ignore environment files with secrets
+.env
+
+# Ignore MySQL data volume (if mapped to local dir)
+mysql_data/
+
+# Ignore backup files
+backup/*.sql
+backup/*_backup.sql
+
+# Ignore certs (do not store private keys in git!)
+/etc/letsencrypt/
+
+# Ignore Docker-related files
+*.pid
+*.log
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore VSCode settings
+.vscode/
