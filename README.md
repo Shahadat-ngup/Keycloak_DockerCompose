@@ -1,15 +1,19 @@
 # Keycloak + MySQL + Nginx Docker Production Deployment
 
-## Quick Start
-1. Copy `.env` and set strong passwords for MySQL and Keycloak.
-2. Make sure your SSL certificates are in `/etc/letsencrypt/live/id.ipb.pt/` (or update the path in `docker-compose.yml` and `nginx.conf`).
-3. Run:
+## Quick Start: Installation & Replication
+
+1. **Clone or copy this repository to your server.**
+2. **Copy `.env.example` to `.env` and set strong passwords for MySQL and Keycloak.**
+   - Edit `.env` and fill in all required variables (see comments in the file).
+3. **Obtain SSL certificates** for your domain (e.g., with Certbot):
+   - Place them in `/etc/letsencrypt/live/your-domain/` or update the paths in `docker-compose.yml` and `nginx/nginx.conf`.
+4. **Start all services:**
    ```bash
    docker compose up -d
    ```
-4. Access Keycloak:
+5. **Access Keycloak:**
    - Locally: http://localhost:8080
-   - Via HTTPS: https://id.ipb.pt/ (or your domain)
+   - Via HTTPS: https://your-domain/ (or your configured domain)
 
 ## Folder Structure
 - `nginx/nginx.conf` – Nginx reverse proxy config (handles HTTPS)
@@ -17,6 +21,13 @@
 - `backup/` – Backup/restore instructions and scripts
 - `.env` – Environment variables for MySQL and Keycloak
 - `docker-compose.yml` – Main Docker Compose file
+
+## How to Replicate This Setup
+1. Copy the entire project folder to your new server or environment.
+2. Update `.env` with new secrets and database credentials as needed.
+3. Ensure SSL certificates are present or re-issue for the new domain.
+4. Run `docker compose up -d` to start all services.
+5. Follow the same backup and restore procedures as described below.
 
 ## Updating
 
@@ -27,8 +38,8 @@ mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE > backup/keycloak_back
 ```
 
 **2. Update Keycloak or MySQL:**
-- Edit `docker-compose.yml` and change the image tag for Keycloak or MySQL to the desired version (e.g., `quay.io/keycloak/keycloak:24.0.1` or `mysql:8.4`).
-- Or, keep using `latest` for automatic latest, but using a specific version is safer for production.
+- Edit `docker-compose.yml` and change the image tag for Keycloak or MySQL to the desired version (e.g., `quay.io/keycloak/keycloak:26.3.1` or `mysql:9.3.0`).
+- Using a specific version is safer for production than `latest`.
 
 **3. Pull and restart containers:**
 
