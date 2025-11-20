@@ -57,7 +57,10 @@ docker compose up -d
 ```bash
 docker compose exec -T mysql mysql -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < backup/keycloak_backup_YYYY-MM-DD.sql
 ```
-
+### Access postgres db
+```
+docker compose exec -it postgres psql -U "$PG_USER" -d "$PG_DATABASE"
+```
 ## Important Docker Compose Commands
 
 | Command                                 | Description                       |
