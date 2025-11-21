@@ -21,3 +21,7 @@ Thumbs.db
 
 # Ignore VSCode settings
 .vscode/
+
+# gatline ignore
+gatling-charts-highcharts-bundle-3.11.5
+gatling-charts-highcharts-bundle-3.11.5.zip
