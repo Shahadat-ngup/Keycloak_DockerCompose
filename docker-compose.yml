@@ -1,6 +1,14 @@
 services:
   mysql:
     image: mysql:9.3.0
+    command: >
+      --max-connections=500
+      --innodb-buffer-pool-size=2G
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -47,6 +55,26 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # Add these database pool settings
+      KC_DB_POOL_INITIAL_SIZE: 10
+      KC_DB_POOL_MIN_SIZE: 10
+      KC_DB_POOL_MAX_SIZE: 100
+
+      # Add JVM tuning (replaces any existing JAVA_OPTS)
+      JAVA_OPTS_APPEND: >-
+        -Xms2g -Xmx4g
+        -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=100
+        -XX:+PrintCommandLineFlags 
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 5G
+        reservations:
+          cpus: '2'
+          memory: 3G
     ports:
       - "8080:8080"
     depends_on:
@@ -60,6 +88,10 @@ services:
   nginx:
     image: nginx:1.29.0
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     depends_on:
       - keycloak
     ports:
