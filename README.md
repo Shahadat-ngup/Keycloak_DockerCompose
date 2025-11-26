@@ -194,6 +194,25 @@ CREATE TABLE users (
 );
 ```
 
+### Access MysqlSQL
+```bash
+# Enter container
+docker exec -it keycloak-docker-mysql-1 sh
+# Enter prompted pass
+mysql -u root -p
+#Create database if needed
+CREATE DATABASE keycloak_v1_qa;
+CREATE USER 'keycloak_qa'@'%' IDENTIFIED BY 'Dewan41724%';
+GRANT ALL PRIVILEGES ON keycloak_v1_qa.* TO 'keycloak_qa'@'%';
+FLUSH PRIVILEGES;
+#show database
+show databases;
+
+```
+
+---
+
+
 ### Access PostgreSQL
 ```bash
 # From host machine
@@ -278,7 +297,20 @@ command: >
 worker_connections 10000;
 keepalive 256;
 http2 on;
+
+
 ```
+### Nginx For our clone and main has also be done like this.
+sudo cp /etc/letsencrypt/live/id-qa.ipb.pt/fullchain.pem /etc/letsencrypt/live/id-qa.ipb.pt/id-qa.ipb.pt.pem
+sudo cp /etc/letsencrypt/live/id-qa.ipb.pt/privkey.pem /etc/letsencrypt/live/id-qa.ipb.pt/id-qa.ipb.pt.key
+sudo chmod 644 /etc/letsencrypt/live/id-qa.ipb.pt/id-qa.ipb.pt.pem
+sudo chmod 600 /etc/letsencrypt/live/id-qa.ipb.pt/id-qa.ipb.pt.key
+# and then change in nginx.conf
+ssl_certificate /etc/letsencrypt/live/id-qa.ipb.pt/id-qa.ipb.pt.pem;
+ssl_certificate_key /etc/letsencrypt/live/id-qa.ipb.pt/id-qa.ipb.pt.key;
+
+# down and up
+
 
 ### Scaling Beyond 10k Users
 
