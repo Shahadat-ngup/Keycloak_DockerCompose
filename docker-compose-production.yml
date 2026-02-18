@@ -54,7 +54,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.0
     restart: unless-stopped
-    command: start --hostname-strict=false #--log-level=org.keycloak.storage.ldap:TRACE
+    command: start --features=scripts
     environment:
       KC_DB: mysql
       KC_DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
@@ -62,7 +62,7 @@ services:
       KC_DB_PASSWORD: ${MYSQL_PASSWORD}
       KC_HTTP_ENABLED: "true"
       KC_PROXY: edge
-      KC_HOSTNAME: id-qa.ipb.pt
+      KC_HOSTNAME: id.ipb.pt
       KC_HOSTNAME_STRICT: "false"
       KC_PROXY_HEADERS: xforwarded
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
@@ -71,14 +71,14 @@ services:
       KC_DB_POOL_INITIAL_SIZE: 10
       KC_DB_POOL_MIN_SIZE: 10
       KC_DB_POOL_MAX_SIZE: 100
-      # Password History Database to check the external MariaDB if user has the previous similar password during the password change
-      PASSWORD_HISTORY_DB_HOST: ${PASSWORD_HISTORY_DB_HOST}
-      PASSWORD_HISTORY_DB_PORT: ${PASSWORD_HISTORY_DB_PORT:-3306}
-      PASSWORD_HISTORY_DB_NAME: ${PASSWORD_HISTORY_DB_NAME}
-      PASSWORD_HISTORY_DB_USER: ${PASSWORD_HISTORY_DB_USER}
-      PASSWORD_HISTORY_DB_PASSWORD: ${PASSWORD_HISTORY_DB_PASSWORD}
-      # Add Trace Loggin
-      #KC_LOG_LEVEL: "org.keycloak.storage.ldap:TRACE,org.keycloak.models.jpa:DEBUG"
+      # Cache type
+      KC_CACHE: local
+      # disable/comment these after testing the theme
+      KC_SPI_THEME_STATIC_MAX_AGE: "-1"
+      KC_SPI_THEME_CACHE_THEMES: "false"
+      KC_SPI_THEME_CACHE_TEMPLATES: "false"
+
+
 
       # Add JVM tuning (replaces any existing JAVA_OPTS)
       JAVA_OPTS_APPEND: >-
@@ -86,6 +86,7 @@ services:
         -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=512m
         -XX:+UseG1GC
         -XX:MaxGCPauseMillis=100
+        -XX:+PrintCommandLineFlags
     deploy:
       resources:
         limits:
@@ -103,7 +104,6 @@ services:
     volumes:
       - ./keycloak/themes:/opt/keycloak/themes:ro
       - ./keycloak/providers:/opt/keycloak/providers:ro
-      - ./extra-locale-messages:/opt/keycloak/messages:ro
     logging:
       driver: "json-file"
       options:
@@ -114,6 +114,10 @@ services:
   nginx:
     image: nginx:1.29.0
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     depends_on:
       - keycloak
     ports:
@@ -121,7 +125,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - /etc/letsencrypt/live/id-qa.ipb.pt:/etc/letsencrypt/live/id-qa.ipb.pt:ro
+      - /etc/letsencrypt/live/id.ipb.pt:/etc/letsencrypt/live/id.ipb.pt:ro
     logging:
       driver: "json-file"
       options:
