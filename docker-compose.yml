@@ -4,6 +4,7 @@ services:
     command: >
       --max-connections=500
       --innodb-buffer-pool-size=2G
+      --innodb-flush-log-at-trx-commit=2
     deploy:
       resources:
         limits:
@@ -15,6 +16,12 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     volumes:
       - mysql_data:/var/lib/mysql
     logging:
@@ -52,9 +59,12 @@ services:
       - keycloak-net
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile.keycloak
+    image: keycloak-optimized:26.5.0
     restart: unless-stopped
-    command: start --hostname-strict=false #--log-level=org.keycloak.storage.ldap:TRACE
+    command: start --optimized --hostname-strict=false #--log-level=org.keycloak.storage.ldap:TRACE
     environment:
       KC_DB: mysql
       KC_DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
@@ -97,7 +107,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
       - keycloak-net
     volumes:

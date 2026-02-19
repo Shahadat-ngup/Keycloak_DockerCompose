@@ -6,11 +6,15 @@ This repository contains a production-ready Keycloak deployment with MySQL datab
 
 ## 🚀 Features
 
-- **Keycloak 26.3.4** with custom themes and providers
+- **Keycloak 26.5.0** with custom themes and providers (optimized build)
 - **MySQL 9.3.0** as primary identity database (optimized with 500 connections, 2GB buffer pool)
 - **PostgreSQL 17.6** for external service integrations
 - **Nginx 1.29.0** reverse proxy with SSL/TLS (HTTP/2 enabled)
+- **Docker log rotation** - 10MB max size, 3 rotated files per service
+- **Optimized Keycloak build** - Pre-built with custom providers via Dockerfile
+- **Health checks** - MySQL and PostgreSQL with proper startup sequencing
 - **Performance tuning**: JVM heap (4GB), connection pooling (256 keepalive), resource limits
+- **Custom provider support** - Password policies, authenticators, and gov plugins
 - Let's Encrypt SSL certificates
 - Docker Compose orchestration
 
@@ -42,6 +46,10 @@ This repository contains a production-ready Keycloak deployment with MySQL datab
 - ✅ Keycloak DB pool (100 max)
 - ✅ G1 garbage collector
 - ✅ Resource limits enforced via Docker
+- ✅ Docker log rotation (prevents disk overflow)
+- ✅ Keycloak optimized build with custom providers
+- ✅ MySQL and PostgreSQL health checks
+- ✅ Health and metrics endpoints enabled
 
 ---
 
@@ -49,18 +57,24 @@ This repository contains a production-ready Keycloak deployment with MySQL datab
 
 ```
 Keycloak-Docker/
-├── docker-compose.yml          # Main orchestration (optimized)
+├── docker-compose.yml          # Development orchestration
+├── docker-compose-production.yml # Production orchestration
+├── Dockerfile.keycloak         # Optimized Keycloak build with providers
 ├── .env                        # Environment variables (credentials)
 ├── nginx/
 │   └── nginx.conf             # Nginx config (HTTP/2, keepalive, rate limiting)
 ├── keycloak/
-│   ├── themes/                # Custom Keycloak themes
-│   └── providers/             # Custom SPI providers
+│   ├── themes/                # Custom Keycloak themes (volume mounted)
+│   └── providers/             # Custom SPI providers (JAR files)
+│       ├── custom-password-policy-1.0.0.jar
+│       ├── keycloak-autenticacao-gov-plugin.jar
+│       └── staff-group-authenticator-1.0.0.jar
 ├── keycloak-realm-tools/
 │   └── clone_realm.py         # Realm cloning utility
 ├── backup/
 │   ├── backup.sh              # Automated backup script
 │   └── restore.sh             # Restore script
+├── PRODUCTION-TUNING.md       # Deployment guide and tuning details
 └── README.md
 ```
 
@@ -105,19 +119,29 @@ ls -la /etc/letsencrypt/live/id.ipb.pt/
 # Should show: fullchain.pem, privkey.pem
 ```
 
-### 4. Deploy Services
+### 4. Build Optimized Keycloak Image
+```bash
+# Build Keycloak with custom providers
+docker compose build keycloak
+
+# Verify image was created
+docker images | grep keycloak-optimized
+# Expected: keycloak-optimized:26.5.0
+```
+
+### 5. Deploy Services
 ```bash
 # Start all services
 docker compose up -d
 
-# Check status
+# Check status (MySQL should be healthy before Keycloak starts)
 docker compose ps
 
 # View logs
 docker compose logs -f keycloak
 ```
 
-### 5. Access Keycloak
+### 6. Access Keycloak
 - **Public URL**: `https://id.ipb.pt`
 - **Admin Console**: `https://id.ipb.pt/admin/master/console/`
 - **Credentials**: Use `KEYCLOAK_ADMIN` from `.env`
@@ -276,6 +300,19 @@ docker compose restart nginx
 
 ### Current Configuration
 
+**Keycloak Build (Dockerfile.keycloak):**
+```dockerfile
+FROM quay.io/keycloak/keycloak:26.5.0
+
+ENV KC_HEALTH_ENABLED="true"
+ENV KC_METRICS_ENABLED="true"
+ENV KC_LOG_LEVEL="INFO"
+
+COPY --chown=keycloak:keycloak ./keycloak/providers/*.jar /opt/keycloak/providers/
+
+RUN /opt/keycloak/bin/kc.sh build --db=mysql --features=scripts,token-exchange,admin-fine-grained-authz
+```
+
 **Keycloak JVM:**
 ```yaml
 JAVA_OPTS_APPEND: >-
@@ -290,6 +327,23 @@ JAVA_OPTS_APPEND: >-
 command: >
   --max-connections=500
   --innodb-buffer-pool-size=2G
+  --innodb-flush-log-at-trx-commit=2
+healthcheck:
+  test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+```
+
+**Log Rotation (all services):**
+```yaml
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"    # Max 10MB per log file
+    max-file: "3"       # Keep 3 rotated files
+    compress: "true"    # Compress rotated logs
 ```
 
 **Nginx:**
@@ -297,6 +351,7 @@ command: >
 worker_connections 10000;
 keepalive 256;
 http2 on;
+```
 
 
 ```
@@ -333,9 +388,42 @@ For **20k+ concurrent users**, consider:
 docker compose logs keycloak
 
 # Common causes:
-# - MySQL not ready (wait 30s)
+# - MySQL not ready (check: docker compose ps)
 # - Wrong DB credentials in .env
 # - Port 8080 already in use
+# - Missing optimized build (run: docker compose build keycloak)
+```
+
+### Issue: MySQL container restarting
+```bash
+# Check MySQL logs
+docker compose logs mysql
+
+# Common causes:
+# - Invalid MySQL parameters (check docker-compose.yml)
+# - Insufficient memory (MySQL needs 3GB)
+# - Corrupted data volume (last resort: docker compose down -v)
+```
+
+### Issue: "Provider JAR was updated" warning
+```bash
+# Rebuild Keycloak image with providers
+docker compose down
+docker compose build --no-cache keycloak
+docker compose up -d
+```
+
+### Issue: Disk space filling up
+```bash
+# Check Docker disk usage
+docker system df -v
+
+# Log rotation is configured (10MB max per service)
+# Clean up old images
+docker image prune -a --filter "until=168h"
+
+# Check container log sizes
+sudo du -sh /var/lib/docker/containers/*/
 ```
 
 ### Issue: SSL certificate errors
@@ -390,4 +478,3 @@ docker compose restart
 - [MySQL Optimization](https://dev.mysql.com/doc/refman/9.0/en/optimization.html)
 
 ---
-
