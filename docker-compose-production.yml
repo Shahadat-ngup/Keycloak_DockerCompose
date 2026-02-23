@@ -1,37 +1,37 @@
 services:
   mysql:
     image: mysql:9.3.0
+    restart: unless-stopped
     command: >
       --max-connections=500
       --innodb-buffer-pool-size=2G
       --innodb-flush-log-at-trx-commit=2
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 3G
-    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-    volumes:
-      - mysql_data:/var/lib/mysql
+    networks:
+      - keycloak-net
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
         compress: "true"
-    networks:
-      - keycloak-net
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
 
   postgres:
     image: postgres:17.6
@@ -97,6 +97,22 @@ services:
         -XX:+UseG1GC
         -XX:MaxGCPauseMillis=100
         -XX:+PrintCommandLineFlags
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/themes:/opt/keycloak/themes:ro
+      - ./keycloak/providers:/opt/keycloak/providers:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - keycloak-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
     deploy:
       resources:
         limits:
@@ -105,22 +121,6 @@ services:
         reservations:
           cpus: '2'
           memory: 3G
-    ports:
-      - "8080:8080"
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - keycloak-net
-    volumes:
-      - ./keycloak/themes:/opt/keycloak/themes:ro
-      - ./keycloak/providers:/opt/keycloak/providers:ro
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        compress: "true"
 
   nginx:
     image: nginx:1.29.0
